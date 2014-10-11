@@ -66,10 +66,15 @@ class ReviewBot
     end
   end
 
+  # fixme: unify get/post
   def http_get(uri, limit = 10)
     raise ArgumentError, 'HTTP redirect too deep' if limit == 0
 
-    response = Net::HTTP.get_response(URI.parse(uri))
+    uri = URI.parse(uri)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    request = Net::HTTP::Get.new(uri.request_uri)
+    response = http.request(request)
     case response
     when Net::HTTPSuccess     then response
     when Net::HTTPRedirection then http_get(response['location'], limit - 1)
@@ -79,7 +84,12 @@ class ReviewBot
   end
 
   def http_post(uri, data)
-    response = Net::HTTP.post_form(URI.parse(uri), data)
+    uri = URI.parse(uri)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    request = Net::HTTP::Post.new(uri.request_uri)
+    request.set_form_data(data)
+    response = http.request(request)
   end
 
 end

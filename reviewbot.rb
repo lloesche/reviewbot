@@ -13,7 +13,7 @@ class ReviewBot
     @sb_url = 'https://mesosphere.slack.com/services/hooks/incoming-webhook?token=' + slack_token
     @slack_channel = '#core'
     @requests = review_requests
-    @last_updated = @requests[1].last_updated
+    @last_updated = @requests.first.last_updated
     @posted_ids = RingBuffer.new(1000)
     puts "reading from #{@rr_url}"
     puts "posting to #{@sb_url}"

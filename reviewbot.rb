@@ -82,10 +82,13 @@ class ReviewBot
 
   def http_request(options, limit = 10)
     raise ArgumentError, 'HTTP redirect too deep' if limit == 0
-    get_params = options[:get_params].collect { |k, v| "#{CGI::escape(k.to_s)}=#{CGI::escape(v.to_s)}" }.join('&') if !options[:get_params].nil?
 
     uri = URI.parse(options[:uri])
-    uri.query = uri.query.nil? ? get_params : uri.query + '&' + get_params
+
+    if !options[:get_params].nil?
+      get_params = options[:get_params].collect { |k, v| "#{CGI::escape(k.to_s)}=#{CGI::escape(v.to_s)}" }.join('&')
+      uri.query = uri.query.nil? ? get_params : uri.query + '&' + get_params
+    end
 
     http = Net::HTTP.new(uri.host, uri.port)
     if uri.scheme == 'https'

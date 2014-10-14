@@ -52,7 +52,7 @@ class ReviewBot
   private
 
   def review_requests
-    rrs = JSON.parse(http_request({ uri: @rr_url, get_params: {'output_mode' => 'json', 'count' => '0'} }))
+    rrs = JSON.parse(http_request({ uri: @rr_url }))
 
     requests = Array.new
     rrs['review_requests'].each do |rr|

@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
+require 'logger'
 require 'json'
+require 'yaml'
 require 'net/https'
 require 'cgi'
 require 'uri'
@@ -12,31 +14,37 @@ class ReviewBot
   def initialize(slack_token)
     @rr_url = 'https://reviews.apache.org/api/review-requests/?to-groups=mesos&status=pending'
     @sb_url = 'https://mesosphere.slack.com/services/hooks/incoming-webhook?token=' + slack_token
-    @slack_channel = '#hamburg'
+    employee_url = 'https://raw.githubusercontent.com/lloesche/reviewbot/master/mesosphere_employees.yml'
+    @slack_channel = '#core'
+
+    @logger = Logger.new(STDOUT)
+    @logger.level = Logger::DEBUG
     @requests = review_requests
+    @employees = YAML.load(http_request({uri: employee_url}))
     @last_updated = @requests.first.last_updated
     @posted_ids = RingBuffer.new(1000)
-    puts "reading from #{@rr_url}"
-    puts "posting to #{@sb_url}"
-    puts "last updated is #{@last_updated}"
+    @logger.info "reading from #{@rr_url}"
+    @logger.info "posting to #{@sb_url}"
+    @logger.info "loaded #{@employees.length} employee names from #{employee_url}"
+    @logger.info "last updated is #{@last_updated}"
   end
 
   def run
     loop do
-      puts "refreshing review requests"
+      @logger.info "refreshing review requests"
       begin
         @requests = review_requests
         @requests.reverse.each do |rr|
           if rr.last_updated > @last_updated
-            puts "current last_updated #{@last_updated} is smaller than #{rr.last_updated} - sending to channel"
+            @logger.info "current last_updated #{@last_updated} is smaller than #{rr.last_updated} - sending to channel"
             send(rr)
             @last_updated = rr.last_updated
           end
         end
       rescue => e
-        puts "something went wrong: #{e}"
+        @logger.error "something went wrong: #{e}"
       end
-      puts "sleeping"
+      @logger.debug "sleeping"
       sleep 60
     end
   end
@@ -50,7 +58,7 @@ class ReviewBot
     rrs['review_requests'].each do |rr|
       requests.push ReviewRequest.new(rr)
     end
-    puts "parsed #{requests.length} review requests"
+    @logger.info "parsed #{requests.length} review requests"
     requests
   end
 
@@ -58,12 +66,18 @@ class ReviewBot
     payload = {"channel" => @slack_channel, "username" => "#{rr.submitter} [Review Board]", "text" => "#{rr.summary} [<#{rr.absolute_url}|##{rr.id}>]", "icon_emoji" => ":space_invader:"}
 
     if @posted_ids.include? rr.id
-      puts "already posted review request #{rr.id} before - skipping"
-    else
-      puts "sending payload: #{payload}"
-      http_request({ uri: @sb_url, post_data: {'payload' => payload.to_json}})
-      @posted_ids.push rr.id
+      @logger.info "already posted review request #{rr.id} before - skipping"
+      return
     end
+
+    if ! @employees.include? rr.submitter
+      @logger.info "#{rr.submitter} is no Mesosphere employee - skipping"
+      return
+    end
+
+    @logger.info "sending payload: #{payload}"
+    http_request({ uri: @sb_url, post_data: {'payload' => payload.to_json}})
+    @posted_ids.push rr.id
   end
 
   def http_request(options, limit = 10)

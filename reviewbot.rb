@@ -19,7 +19,7 @@ class ReviewBot
 
     @logger = Logger.new(STDOUT)
     @logger.level = Logger::DEBUG
-    @posted_ids = RingBuffer.new(1000)
+    @posted_ids = RingBuffer.new(10000)
 
     @requests = review_requests
     @last_updated = @requests.first.last_updated

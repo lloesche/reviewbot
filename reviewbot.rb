@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 require 'json'
-require 'net/http'
+require 'net/https'
+require 'cgi'
 require 'uri'
 require 'date'
 
@@ -11,7 +12,7 @@ class ReviewBot
   def initialize(slack_token)
     @rr_url = 'https://reviews.apache.org/api/review-requests/?to-groups=mesos&status=pending'
     @sb_url = 'https://mesosphere.slack.com/services/hooks/incoming-webhook?token=' + slack_token
-    @slack_channel = '#core'
+    @slack_channel = '#hamburg'
     @requests = review_requests
     @last_updated = @requests.first.last_updated
     @posted_ids = RingBuffer.new(1000)
@@ -43,8 +44,7 @@ class ReviewBot
   private
 
   def review_requests
-    resp = http_get(@rr_url)
-    rrs = JSON.parse(resp.body)
+    rrs = JSON.parse(http_request({ uri: @rr_url, get_params: {'output_mode' => 'json', 'count' => '0'} }))
 
     requests = Array.new
     rrs['review_requests'].each do |rr|
@@ -61,35 +61,40 @@ class ReviewBot
       puts "already posted review request #{rr.id} before - skipping"
     else
       puts "sending payload: #{payload}"
-      http_post(@sb_url, {'payload' => payload.to_json})
+      http_request({ uri: @sb_url, post_data: {'payload' => payload.to_json}})
       @posted_ids.push rr.id
     end
   end
 
-  # fixme: unify get/post
-  def http_get(uri, limit = 10)
+  def http_request(options, limit = 10)
     raise ArgumentError, 'HTTP redirect too deep' if limit == 0
+    get_params = options[:get_params].collect { |k, v| "#{CGI::escape(k.to_s)}=#{CGI::escape(v.to_s)}" }.join('&') if !options[:get_params].nil?
 
-    uri = URI.parse(uri)
+    uri = URI.parse(options[:uri])
+    uri.query = uri.query.nil? ? get_params : uri.query + '&' + get_params
+
     http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
-    request = Net::HTTP::Get.new(uri.request_uri)
+    if uri.scheme == 'https'
+      http.use_ssl = true
+#      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    end
+
+    request = nil
+    if options[:post_data].nil?
+      request = Net::HTTP::Get.new uri.request_uri
+    else
+      request = Net::HTTP::Post.new(uri.request_uri)
+      request.set_form_data(options[:post_data])
+    end
+
     response = http.request(request)
+
     case response
-    when Net::HTTPSuccess     then response
-    when Net::HTTPRedirection then http_get(response['location'], limit - 1)
+    when Net::HTTPSuccess then return response.body
+    when Net::HTTPRedirection then http_request(options, limit - 1)
     else
       response.error!
     end
-  end
-
-  def http_post(uri, data)
-    uri = URI.parse(uri)
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
-    request = Net::HTTP::Post.new(uri.request_uri)
-    request.set_form_data(data)
-    response = http.request(request)
   end
 
 end

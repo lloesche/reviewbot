@@ -19,14 +19,17 @@ class ReviewBot
 
     @logger = Logger.new(STDOUT)
     @logger.level = Logger::DEBUG
-    @requests = review_requests
-    @employees = YAML.load(http_request({uri: employee_url}))
-    @last_updated = @requests.first.last_updated
     @posted_ids = RingBuffer.new(1000)
-    @logger.info "reading from #{@rr_url}"
-    @logger.info "posting to #{@sb_url}"
+
+    @requests = review_requests
+    @last_updated = @requests.first.last_updated
+    @logger.info "set last updated to #{@last_updated}"
+
+    @employees = YAML.load(http_request({uri: employee_url}))
     @logger.info "loaded #{@employees.length} employee names from #{employee_url}"
-    @logger.info "last updated is #{@last_updated}"
+
+    @logger.info "reading review requests from #{@rr_url}"
+    @logger.info "posting review requests to #{@sb_url}"
   end
 
   def run
@@ -85,7 +88,7 @@ class ReviewBot
 
     uri = URI.parse(options[:uri])
 
-    if !options[:get_params].nil?
+    if ! options[:get_params].nil?
       get_params = options[:get_params].collect { |k, v| "#{CGI::escape(k.to_s)}=#{CGI::escape(v.to_s)}" }.join('&')
       uri.query = uri.query.nil? ? get_params : uri.query + '&' + get_params
     end

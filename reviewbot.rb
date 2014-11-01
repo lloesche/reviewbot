@@ -3,6 +3,7 @@ require 'logger'
 require 'json'
 require 'yaml'
 require 'net/https'
+require 'timeout'
 require 'cgi'
 require 'uri'
 require 'date'
@@ -85,8 +86,12 @@ class ReviewBot
 
   def http_request(options, limit = 10)
     raise ArgumentError, 'HTTP redirect too deep' if limit == 0
+    defaults = {timeout: 60}
+    options = defaults.merge(options)
 
     uri = URI.parse(options[:uri])
+    request = nil
+    response = nil
 
     if ! options[:get_params].nil?
       get_params = options[:get_params].collect { |k, v| "#{CGI::escape(k.to_s)}=#{CGI::escape(v.to_s)}" }.join('&')
@@ -99,7 +104,6 @@ class ReviewBot
 #      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
     end
 
-    request = nil
     if options[:post_data].nil?
       request = Net::HTTP::Get.new uri.request_uri
     else
@@ -107,7 +111,9 @@ class ReviewBot
       request.set_form_data(options[:post_data])
     end
 
-    response = http.request(request)
+    Timeout::timeout(options[:timeout]) do
+      response = http.request(request)
+    end
 
     case response
     when Net::HTTPSuccess then return response.body

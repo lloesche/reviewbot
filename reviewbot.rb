@@ -14,7 +14,7 @@ class ReviewBot
 
   def initialize(slack_token)
     @rr_url = 'https://reviews.apache.org/api/review-requests/?to-groups=mesos&status=pending'
-    @sb_url = 'https://mesosphere.slack.com/services/hooks/incoming-webhook?token=' + slack_token
+    @sb_url = 'https://hooks.slack.com/services/' + slack_token
     employee_url = 'https://raw.githubusercontent.com/lloesche/reviewbot/master/mesosphere_employees.yml'
     @slack_channel = '#core'
 

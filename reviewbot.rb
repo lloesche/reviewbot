@@ -75,7 +75,7 @@ class ReviewBot
     end
     
     if @employees.include? rr.submitter
-      payload["username"] = "[Mesosphere]" + payload["username"]
+      payload["username"] = "[Mesosphere] " + payload["username"]
     end
  
 

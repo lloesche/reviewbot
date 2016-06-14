@@ -73,7 +73,12 @@ class ReviewBot
       @logger.info "already posted review request #{rr.id} before - skipping"
       return
     end
-
+    
+    if ! @employees.include? rr.submitter
+      @logger.info "#{rr.submitter} is no Mesosphere employee - skipping"
+      return
+    end
+ 
     @logger.info "sending payload: #{payload}"
     http_request({ uri: @sb_url, post_data: {'payload' => payload.to_json}})
     @posted_ids.push rr.id

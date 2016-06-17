@@ -74,8 +74,8 @@ class ReviewBot
       return
     end
     
-    if ! @employees.include? rr.submitter
-      @logger.info "#{rr.submitter} is no Mesosphere employee - skipping"
+    if @employees.include? rr.submitter
+      @logger.info "#{rr.submitter} is Mesosphere employee - skipping"
       return
     end
  
